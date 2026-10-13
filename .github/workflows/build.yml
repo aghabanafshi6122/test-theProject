@@ -1,13 +1,7 @@
 name: Sync JinX-X4G to My Project
 
 on:
-  # اجرای دستی از تب Actions
   workflow_dispatch:
-
-  # اجرا با هر push روی برنچ main (اختیاری)
-  push:
-    branches:
-      - main
 
 permissions:
   contents: write
@@ -23,23 +17,42 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Clone source repo (JinX-X4G)
+      - name: Clone source repo
+        env:
+          SRC_TOKEN: ${{ secrets.SRC_TOKEN }}
         run: |
-          git clone --depth 1 https://github.com/x4gpanell/JinX-X4G.git /tmp/jinx-src
+          set -e
+          SRC_DIR="/tmp/jinx-src"
+          rm -rf "$SRC_DIR"
 
-      - name: Copy files into my project
+          if [ -n "$SRC_TOKEN" ]; then
+            URL="https://x-access-token:${SRC_TOKEN}@github.com/x4gpanell/JinX-X4G.git"
+          else
+            URL="https://github.com/x4gpanell/JinX-X4G.git"
+          fi
+
+          echo "Cloning from GitHub..."
+          git clone --depth 1 "$URL" "$SRC_DIR" || {
+            echo "::error::Clone failed with exit $?"
+            exit 1
+          }
+
+      - name: Copy files
         run: |
-          # پاک کردن فایل‌های قبلی (به جز .git و .github)
+          set -e
+          # پاک‌سازی محتوا جز .git و .github
           find . -mindepth 1 -maxdepth 1 \
             ! -name '.git' \
             ! -name '.github' \
             -exec rm -rf {} +
 
-          # کپی همه‌ی محتوای مخزن مبدأ
-          cp -r /tmp/jinx-src/. .
+          # کپی محتوا
+          shopt -s dotglob
+          cp -r /tmp/jinx-src/* .
+          shopt -u dotglob
 
-          # حذف .git مخزن مبدأ اگر کپی شده
-          rm -rf .git-src
+          # حذف .git داخل مبدأ اگر منتقل شد
+          rm -rf /tmp/jinx-src
 
       - name: Configure git
         run: |
